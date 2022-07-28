@@ -1,21 +1,311 @@
-const GameComponentMargin = 28;
-const GameComponentSize = 96;
-const MinLongDimension = (GameComponentSize * 3) + (GameComponentMargin * 4);
-const MinShortDimension = GameComponentSize + (GameComponentMargin * 2);
+/**
+ * Defines the base for a labeled component.
+ * @param {string} labelText The text to display.
+ * @param {string} labelColor The CSS color of the text to display.
+ */
+function LabeledComponent(labelText, labelColor) {
+    /**
+     * The color of the label. Default is "white".
+     * @type {string}
+     * */
+    this.labelColor = labelColor || "white";
+    /**
+     * The text of the label.
+     * @type {string}
+     * */
+    this.labelText = labelText;
+    /**
+     * The horizontal position of the center of the label text.
+     * @type {number}
+     * */
+    this.labelX = -1;
+    /**
+     * The vertical position of the center of the label text.
+     * @type {number}
+     * */
+    this.labelY = -1;
+    /**
+     * The size (in pixels) of the label text.
+     * @type {number}
+     * */
+    this.labelSize = -1;
+    /**
+     * The size of the component.
+     * @description This is calculated by multiplying the ComponentSize by the scale of the game area.
+     * @type {number}
+     * */
+    this.size = -1;
+    /**
+     * The margin of the component.
+     * @description This is calculated by multiplying the ComponentMargin by the scale of the game area.
+     * @type {number}
+     * */
+    this.margin = -1;
+    /**
+     * The offset of the component.
+     * @description This is calculated by adding the margin and size of each earlier component and multiplying that by the number of earlier components.
+     * @type {number}
+     * */
+    this.offset = -1;
+}
+/**
+ * Called when the window size is calculated.
+ * @param {number} index The position of the component in the collection of components.
+ */
+LabeledComponent.prototype.update = function (index) {
+    this.size = ComponentSize * gameArea.scale;
+    this.margin = ComponentMargin * gameArea.scale;
+    this.offset = (this.size + this.margin) * index;
+    const halfSize = this.size / 2;
+    this.labelX = gameArea.left + this.margin + halfSize + (gameArea.height > gameArea.width ? 0 : this.offset);
+    this.labelY = gameArea.top + this.margin + halfSize + (gameArea.width > gameArea.height ? 0 : this.offset);
+    this.labelSize = this.size * .2;
+};
+/**
+ * Called to draw the label.
+ */
+LabeledComponent.prototype.draw = function () {
+    if (this.labelText && this.labelX >= 0 && this.labelY >= 0 && this.labelSize > 0) {
+        context.fillStyle = this.labelColor;
+        context.font = `bold ${this.labelSize}px sans-serif`;
+        context.textAlign = "center";
+        context.textBaseline = "middle";
+        context.fillText(this.labelText, this.labelX, this.labelY);
+    }
+};
+
+/**
+ * Defines the base component for interactive components.
+ * @param {CallableFunction} onGetShape A function that will draw the shapre of the component without filling or stroking it.
+ * @param {string} labelText The text to display.
+ * @param {string} labelColor The CSS color of the text to display.
+ */
+function InteractiveComponent(onGetShape, labelText, labelColor) {
+    // Call the base component.
+    LabeledComponent.call(this, labelText, labelColor);
+    /**
+     * A function that will draw the shape of the component without filling or stroking it.
+     * @type {CallableFunction}
+     */
+    this.onGetShape = onGetShape;
+    /**
+     * Indicates if the mouse is currently over the component.
+     * @type {boolean}
+     */
+    this.isMouseOver = false;
+}
+InteractiveComponent.prototype = new LabeledComponent();
+/**
+ * Called when the mouse is moved on the canvas.
+ */
+InteractiveComponent.prototype.onMouseMove = function (mouseX, mouseY) {
+    this.onGetShape();
+    const isMouseOver = context.isPointInPath(mouseX, mouseY);
+    if (!this.isMouseOver && isMouseOver) {
+        console.log("MouseEnter: " + this.labelText);
+    }
+    else if (this.isMouseOver && !isMouseOver) {
+        console.log("MouseLeave: " + this.labelText);
+    }
+    this.isMouseOver = isMouseOver;
+}
+
+/**
+ * Defines the base component for circle components.
+ * @param {string} color The CSS color of the circle.
+ * @param {string} labelText The text to display.
+ * @param {string} labelColor The CSS color of the text to display.
+ */
+function CircleComponent(color, labelText, labelColor) {
+    // Call the base component.
+    InteractiveComponent.call(this, this.getCircle, labelText, labelColor);
+    /**
+     * The CSS color of the circle.
+     * @type {string}
+     * */
+    this.color = color;
+    /**
+     * The radius of the circle.
+     * @type {number}
+     */
+    this.radius = -1;
+    /**
+     * The horizontal center of the circle.
+     * @type {number}
+     */
+    this.x = -1;
+    /**
+     * The vertical center of the circle.
+     * @type {number}
+     */
+    this.y = -1;
+}
+// Inherit from InteractiveComponent
+CircleComponent.prototype = new InteractiveComponent();
+/**
+ * Called when the window size is calculated.
+ * @param {number} index The position of the circle component in the collection of components.
+ */
+CircleComponent.prototype.update = function (index) {
+    // Call the LabeledComponent to update the label.
+    LabeledComponent.prototype.update.call(this, index);
+    this.radius = this.size / 2;
+    const center = (ComponentMargin * gameArea.scale) + this.radius;
+    this.x = gameArea.left + center + (gameArea.height > gameArea.width ? 0 : this.offset);
+    this.y = gameArea.top + center + (gameArea.width > gameArea.height ? 0 : this.offset);
+};
+/**
+ * Called by the game loop to draw the circle component.
+ */
+CircleComponent.prototype.draw = function () {
+    this.getCircle();
+    context.fillStyle = this.color;
+    context.fill();
+    // Call the LabeledComponent to draw the label.
+    LabeledComponent.prototype.draw.call(this);
+};
+/**
+ * Called to draw a circle with the current position and radius to the context without filling or stroking it.
+ */
+CircleComponent.prototype.getCircle = function () {
+    context.beginPath();
+    context.arc(this.x, this.y, this.radius, CircleStartAngle, CircleEndAngle, false);
+    context.closePath();
+};
+
+/**
+ * Defines the base component for rectangular components.
+ * @param {string} color The CSS color of the rectangle.
+ * @param {string} labelText The text to display.
+ * @param {string} labelColor The CSS color of the text to display.
+ */
+function RectangleComponent(color, labelText, labelColor) {
+    // Call the base component.
+    InteractiveComponent.call(this, this.getRectangle, labelText, labelColor);
+    /**
+     * The CSS color of the rectangle.
+     * @type {string}
+     * */
+    this.color = color;
+    /**
+     * The radius of the rectangle.
+     * @type {number}
+     */
+    this.cornerRadius = -1;
+    /**
+     * The left of the rectangle.
+     * @type {number}
+     */
+    this.x = -1;
+    /**
+     * The top side of the rectangle.
+     * @type {number}
+     */
+    this.y = -1;
+}
+// Inherit from InteractiveComponent
+RectangleComponent.prototype = new InteractiveComponent();
+/**
+ * Called when the window size is calculated.
+ * @param {number} index The position of the rectangle component in the collection of components.
+ */
+RectangleComponent.prototype.update = function (index) {
+    // Call the LabeledComponent to update the label.
+    LabeledComponent.prototype.update.call(this, index);
+    this.height = this.size / 2;
+    this.y = gameArea.top + this.margin + (gameArea.width > gameArea.height ? 0 : this.offset) + (this.height / 2);
+    this.x = gameArea.left + this.margin + (gameArea.height > gameArea.width ? 0 : this.offset);
+    this.cornerRadius = this.size * .12;
+};
+/**
+ * Called by the game loop to draw the rectangle component.
+ */
+RectangleComponent.prototype.draw = function () {
+    this.getRectangle();
+    context.fillStyle = this.color;
+    context.fill();
+    // Call the LabeledComponent to draw the label.
+    LabeledComponent.prototype.draw.call(this);
+};
+/**
+ * Called to draw a rectangle with the current position and cornerRadius to the context without filling or stroking it.
+ */
+RectangleComponent.prototype.getRectangle = function () {
+    context.beginPath();
+    context.moveTo(this.x + this.cornerRadius, this.y);
+    context.lineTo(this.x + this.size - this.cornerRadius, this.y);
+    context.quadraticCurveTo(this.x + this.size, this.y, this.x + this.size, this.y + this.cornerRadius);
+    context.lineTo(this.x + this.size, this.y + this.height - this.cornerRadius);
+    context.quadraticCurveTo(this.x + this.size, this.y + this.height, this.x + this.size - this.cornerRadius, this.y + this.height);
+    context.lineTo(this.x + this.cornerRadius, this.y + this.height);
+    context.quadraticCurveTo(this.x, this.y + this.height, this.x, this.y + this.height - this.cornerRadius);
+    context.lineTo(this.x, this.y + this.cornerRadius);
+    context.quadraticCurveTo(this.x, this.y, this.x + this.cornerRadius, this.y);
+    context.closePath();
+};
+
+/**
+ * Defines the Tap It! component.
+ */
+function TapIt() {
+    // Call the base component.
+    CircleComponent.call(this, "red", "Tap It!");
+}
+// Inherit from CircleComponent
+TapIt.prototype = new CircleComponent();
+
+/**
+ * Defines the Turn It! component.
+ */
+function TurnIt() {
+    // Call the base component.
+    CircleComponent.call(this, "green", "Turn It!");
+}
+// Inherit from CircleComponent
+TurnIt.prototype = new CircleComponent();
+
+/**
+ * Defines the Slide It! component.
+ */
+function SlideIt() {
+    // Call the base component.
+    RectangleComponent.call(this, "blue", "Slide It!");
+}
+// Inherit from RectangleComponent
+SlideIt.prototype = new RectangleComponent();
+
+// Define the game constants
+const CircleStartAngle = 0;
+const CircleEndAngle = Math.PI * 2;
+const ComponentMargin = 7;
+const ComponentSize = 24;
+const MinLongDimension = (ComponentSize * 3) + (ComponentMargin * 4);
+const MinShortDimension = ComponentSize + (ComponentMargin * 2);
 const ShortDimensionToLong = MinLongDimension / MinShortDimension;
 const LongDimensionToShort = MinShortDimension / MinLongDimension;
+
+// Create the game.
 const gameArea = { top: 0, left: 0, width: 0, height: 0, scale: 0 };
-const setGameBoardArea = () => {
+const gameComponents = [new TapIt(), new TurnIt(), new SlideIt()];
+
+// Setup the game area.
+/** @type {HTMLCanvasElement} */
+const canvas = document.getElementById('root');
+let context = canvas.getContext('2d');
+const setupGameArea = () => {
     canvas.width = window.innerWidth;
     canvas.height = window.innerHeight;
+    context = canvas.getContext('2d');
     const orientation = canvas.width > canvas.height ? "landscape" : "portrait";
     let longDimension = orientation === "landscape" ? canvas.width : canvas.height;
     let shortDimension = orientation === "landscape" ? canvas.height : canvas.width;
     const proportionateShortDimension = longDimension * LongDimensionToShort;
-    if (proportionateShortDimension > shortDimension) { // If the proportionate short dimension does not fit in the available space of the short dimension, we use the available space and calculate the long dimension.
+    if (proportionateShortDimension > shortDimension) {
+        // If the proportionate short dimension does not fit in the available space of the short dimension, we use the available space and calculate the long dimension.
         longDimension = shortDimension * ShortDimensionToLong;
     }
-    else { // If the available short dimension space fits the desired short dimension, we just use the desired short dimension.
+    else {
+        // If the available short dimension space fits the desired short dimension, we just use the desired short dimension.
         shortDimension = proportionateShortDimension;
     }
     switch (orientation) {
@@ -36,111 +326,28 @@ const setGameBoardArea = () => {
             break;
         }
     }
-
+    gameComponents.forEach((x, i) => x.update(i));
 };
-const canvas = document.getElementById('root');
-setGameBoardArea();
-window.addEventListener('resize', setGameBoardArea);
+setupGameArea();
+window.addEventListener('resize', setupGameArea);
 
-function roundRect(context, x, y, width, height, radius = 5, fill = false, stroke = true) {
-    if (typeof radius === 'number') {
-        radius = { tl: radius, tr: radius, br: radius, bl: radius };
-    } else {
-        radius = { ...{ tl: 0, tr: 0, br: 0, bl: 0 }, ...radius };
-    }
-    context.beginPath();
-    context.moveTo(x + radius.tl, y);
-    context.lineTo(x + width - radius.tr, y);
-    context.quadraticCurveTo(x + width, y, x + width, y + radius.tr);
-    context.lineTo(x + width, y + height - radius.br);
-    context.quadraticCurveTo(x + width, y + height, x + width - radius.br, y + height);
-    context.lineTo(x + radius.bl, y + height);
-    context.quadraticCurveTo(x, y + height, x, y + height - radius.bl);
-    context.lineTo(x, y + radius.tl);
-    context.quadraticCurveTo(x, y, x + radius.tl, y);
-    context.closePath();
-    if (fill) {
-        context.fill();
-    }
-    if (stroke) {
-        context.stroke();
-    }
+// Wire up mouse tracking.
+const onMouseMove = (event) => {
+    var rect = canvas.getBoundingClientRect(), // abs. size of element
+        scaleX = canvas.width / rect.width,    // relationship bitmap vs. element for x
+        scaleY = canvas.height / rect.height;  // relationship bitmap vs. element for y
+    const mouse = {
+        x: (event.clientX - rect.left) * scaleX,   // scale mouse coordinates after they have
+        y: (event.clientY - rect.top) * scaleY     // been adjusted to be relative to element
+    };
+    gameComponents.forEach(x => x.onMouseMove(mouse.x, mouse.y));
 }
+window.addEventListener('mousemove', onMouseMove);
 
-function GameComponent(kind) {
-    this.kind = kind;
-    this.label = `${kind} It!`;
-}
-GameComponent.prototype.draw = function (context) {
-    if (context instanceof CanvasRenderingContext2D) {
-        switch (this.kind) {
-            case "Tap": {
-                context.fillStyle = "red";
-                context.beginPath();
-                const size = GameComponentSize * gameArea.scale;
-                const radius = size / 2;
-                const start = (GameComponentMargin * gameArea.scale) + radius;
-                const x = gameArea.left + start;
-                const y = gameArea.top + start;
-                context.arc(x, y, radius, 0, Math.PI * 2, false);
-                context.fill();
-                context.fillStyle = "white"
-                context.font = `bold ${size * .2}px sans-serif`;
-                context.textAlign = "center";
-                context.textBaseline = "middle";
-                context.fillText(this.label, x, y);
-                break;
-            }
-            case "Turn": {
-                context.fillStyle = "green";
-                context.beginPath();
-                const size = GameComponentSize * gameArea.scale;
-                const margin = GameComponentMargin * gameArea.scale;
-                const radius = size / 2;
-                const offset = size + margin;
-                const top = gameArea.top + margin + radius + (gameArea.width > gameArea.height ? 0 : offset);
-                const left = gameArea.left + margin + radius + (gameArea.height > gameArea.width ? 0 : offset);
-                context.arc(left, top, radius, 0, Math.PI * 2, false);
-                context.fill();
-                context.fillStyle = "white"
-                context.font = `bold ${size * .2}px sans-serif`;
-                context.textAlign = "center";
-                context.textBaseline = "middle";
-                context.fillText(this.label, left, top);
-                break;
-            }
-            case "Slide": {
-                context.fillStyle = "blue";
-                context.beginPath();
-                const width = GameComponentSize * gameArea.scale;
-                const margin = GameComponentMargin * gameArea.scale;
-                const height = width / 2;
-                const offset = (width + margin) * 2;
-                const top = gameArea.top + margin + (gameArea.width > gameArea.height ? 0 : offset);
-                const left = gameArea.left + margin + (gameArea.height > gameArea.width ? 0 : offset);
-                roundRect(context, left, top + (height / 2), width, height, width * .1, true, false);
-                context.fillStyle = "white"
-                context.font = `bold ${width * .2}px sans-serif`;
-                context.textAlign = "center";
-                context.textBaseline = "middle";
-                context.fillText(this.label, left + height, top + height);
-                break;
-            }
-        }
-    }
-};
-GameComponent.prototype.constructor = GameComponent;
-
-const tapIt = new GameComponent('Tap'), turnIt = new GameComponent('Turn'), slideIt = new GameComponent('Slide');
-
+// Start the game loop.
 const animate = () => {
-    const ctx = canvas && canvas.getContext('2d');
-    if (ctx instanceof CanvasRenderingContext2D) {
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        tapIt.draw(ctx);
-        turnIt.draw(ctx);
-        slideIt.draw(ctx);
-    }
+    context.clearRect(0, 0, canvas.width, canvas.height);
+    gameComponents.forEach(x => x.draw());
     requestAnimationFrame(animate);
 };
 animate();
