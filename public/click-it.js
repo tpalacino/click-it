@@ -457,6 +457,8 @@ const setupGameArea = () => {
     gameComponents.forEach((x, i) => x.update(i));
 };
 setupGameArea();
+const orientationQuery = window.matchMedia("(orientation: portrait)");
+orientationQuery.addEventListener("change", setupGameArea);
 window.addEventListener("orientationchange" in window ? "orientationchange" : 'resize', setupGameArea);
 
 const getMousePosition = (event) => {
