@@ -457,9 +457,14 @@ const setupGameArea = () => {
     gameComponents.forEach((x, i) => x.update(i));
 };
 setupGameArea();
-const orientationQuery = window.matchMedia("(orientation: portrait)");
-orientationQuery.addEventListener("change", setupGameArea);
-window.addEventListener("orientationchange" in window ? "orientationchange" : 'resize', setupGameArea);
+if ("orientationchange" in document) {
+    document.addEventListener("orientationchange", setupGameArea);
+}
+else {
+    const orientationQuery = window.matchMedia("(orientation: portrait)");
+    orientationQuery.addEventListener("change", setupGameArea);
+}
+window.addEventListener('resize', setupGameArea);
 
 const getMousePosition = (event) => {
     const rect = canvas.getBoundingClientRect(), // abs. size of element
