@@ -302,18 +302,11 @@ function TapIt() {
 // Inherit from CircleComponent
 TapIt.prototype = new CircleComponent();
 /**
- * Called when the user taps within the bounds of the Tap It! circle.
- */
-TapIt.prototype.onTapped = function () {
-    // TODO: Implement
-    console.log("Tapped It!");
-}
-/**
  * Called when the mouse button is released after being pressed within the bounds of the Tap It! circle.
  */
 TapIt.prototype.onMouseReleased = function () {
     if (this.isPressStarted) {
-        this.onTapped();
+        game.handleTap();
     }
 }
 
@@ -337,12 +330,6 @@ function TurnIt() {
 // Inherit from CircleComponent
 TurnIt.prototype = new CircleComponent();
 /**
- * Called when the user turns the knob and started the turn within the bounds of the Turn It! circle.
- */
-TurnIt.prototype.onTurned = function () {
-    console.log("Turned it!")
-}
-/**
  * Called when the mouse button is pressed within the bounds of the Turn It! circle.
  */
 TurnIt.prototype.onMousePressed = function (mouseX, mouseY) {
@@ -358,7 +345,7 @@ TurnIt.prototype.onMouseReleased = function (mouseX, mouseY) {
         const yMove = Math.max(mouseY, this.downY) - Math.min(mouseY, this.downY);
         const requiredMovement = this.size * .30;
         if (xMove > requiredMovement && yMove > requiredMovement) {
-            this.onTurned();
+            game.handleTurn();
         }
     }
 }
@@ -378,12 +365,6 @@ function SlideIt() {
 // Inherit from RectangleComponent
 SlideIt.prototype = new RectangleComponent();
 /**
- * Called when the user slide the bar and started the slide within the bounds of the Slide It! bar.
- */
-SlideIt.prototype.onSlid = function () {
-    console.log("Slid it!")
-}
-/**
  * Called when the mouse button is pressed within the bounds of the Slide It! bar.
  */
 SlideIt.prototype.onMousePressed = function (mouseX) {
@@ -397,10 +378,110 @@ SlideIt.prototype.onMouseReleased = function (mouseX) {
         const xMove = Math.max(mouseX, this.downX) - Math.min(mouseX, this.downX);
         const requiredMovement = this.size * .45;
         if (xMove > requiredMovement) {
-            this.onSlid();
+            game.handleSlide();
         }
     }
 }
+
+/**
+ * Defines the Start button.
+ */
+function Start() {
+    // Call the base component.
+    RectangleComponent.call(this, "orange", "Start");
+}
+// Inherit from RectangleComponent
+Start.prototype = new RectangleComponent();
+/**
+ * Called when the mouse button is released after being pressed within the bounds of the Start button.
+ */
+Start.prototype.onMouseReleased = function () {
+    if (this.isPressStarted && this.isMouseOver) {
+        game.start();
+    }
+}
+
+/**
+ * Defines the BestScore label.
+ */
+function BestScore() {
+    const score = Number(localStorage.getItem("best-score"));
+
+    // Call the base component.
+    RectangleComponent.call(this, "green", !Number.isNaN(score) && score > 0 ? `Best: ${score.toLocaleString()}` : "");
+}
+// Inherit from RectangleComponent
+BestScore.prototype = new RectangleComponent();
+BestScore.prototype.update = function (index) {
+    // Call the RectangleComponent to update the label.
+    RectangleComponent.prototype.update.call(this, index);
+
+    const score = Number(localStorage.getItem("best-score"));
+
+    this.labelText = !Number.isNaN(score) && score > 0 ? `Best: ${score.toLocaleString()}` : "";
+}
+BestScore.prototype.draw = function () {
+    if (this.labelText.length > 0) {
+        // Call the RectangleComponent to update the label.
+        RectangleComponent.prototype.draw.call(this);
+    }
+}
+
+function Game() {
+    this.screens = {
+        "menu": [new Start(), new BestScore()],
+        "game": [new TapIt(), new TurnIt(), new SlideIt()],
+    };
+
+    this.activeScreen = this.screens["menu"];
+}
+Game.prototype.addScreen = function (id, screen) {
+    this.screens[id] = screen;
+    if (!this.activeScreen) {
+        this.setScreen(id);
+    }
+    return this;
+}
+Game.prototype.start = function () {
+    this.activeScreen = this.screens["game"];
+    this.update();
+    // TODO: Implement game logic
+}
+Game.prototype.handleTap = function () {
+    // TODO: Implement
+}
+Game.prototype.handleTurn = function () {
+    // TODO: Implement
+}
+Game.prototype.handleSlide = function () {
+    // TODO: Implement
+}
+Game.prototype.update = function () {
+    if (this.activeScreen) {
+        this.activeScreen.forEach((x, i) => x.update(i));
+    }
+}
+Game.prototype.draw = function () {
+    if (this.activeScreen) {
+        this.activeScreen.forEach(x => x.draw());
+    }
+}
+Game.prototype.onMouseMove = function (mouseX, mouseY) {
+    if (this.activeScreen) {
+        this.activeScreen.forEach(x => x.onMouseMove(mouseX, mouseY));
+    }
+}
+Game.prototype.onMouseDown = function (mouseX, mouseY) {
+    if (this.activeScreen) {
+        this.activeScreen.forEach(x => x.onMouseDown(mouseX, mouseY));
+    }
+}
+Game.prototype.onMouseUp = function (mouseX, mouseY) {
+    if (this.activeScreen) {
+        this.activeScreen.forEach(x => x.onMouseUp(mouseX, mouseY));
+    }
+}
+
 
 // Define the game constants
 const CircleStartAngle = 0;
@@ -414,7 +495,7 @@ const LongDimensionToShort = MinShortDimension / MinLongDimension;
 
 // Create the game.
 const gameArea = { top: 0, left: 0, width: 0, height: 0, scale: 0 };
-const gameComponents = [new TapIt(), new TurnIt(), new SlideIt()];
+const game = new Game();
 
 // Setup the game area.
 /** @type {HTMLCanvasElement} */
@@ -454,7 +535,7 @@ const setupGameArea = () => {
             break;
         }
     }
-    gameComponents.forEach((x, i) => x.update(i));
+    game.update();
 };
 setupGameArea();
 if ("orientationchange" in document) {
@@ -480,34 +561,24 @@ const getMousePosition = (event) => {
 // Wire up mouse tracking.
 const onMouseMove = (event) => {
     const mouse = getMousePosition(event);
-    gameComponents.forEach(x => x.onMouseMove(mouse.x, mouse.y));
+    game.onMouseMove(mouse.x, mouse.y);
 };
 window.addEventListener('mousemove', onMouseMove);
 const onMouseDown = (event) => {
-    if (event.which === 1) {
-        const mouse = getMousePosition(event);
-        gameComponents.forEach(x => x.onMouseDown(mouse.x, mouse.y));
-    }
-    else {
-        console.log("Mouse button " + event.which);
-    }
+    const mouse = getMousePosition(event);
+    game.onMouseDown(mouse.x, mouse.y);
 };
 window.addEventListener('mousedown', onMouseDown);
 const onMouseUp = (event) => {
-    if (event.which === 1) {
-        const mouse = getMousePosition(event);
-        gameComponents.forEach(x => x.onMouseUp(mouse.x, mouse.y));
-    }
-    else {
-        console.log("Mouse button " + event.which);
-    }
+    const mouse = getMousePosition(event);
+    game.onMouseUp(mouse.x, mouse.y);
 };
 window.addEventListener('mouseup', onMouseUp);
 
 // Start the game loop.
 const animate = () => {
     context.clearRect(0, 0, canvas.width, canvas.height);
-    gameComponents.forEach(x => x.draw());
+    game.draw();
     requestAnimationFrame(animate);
 };
 animate();
