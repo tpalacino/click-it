@@ -93,6 +93,11 @@ function InteractiveComponent(onGetShape, labelText, labelColor) {
      * @type {boolean}
      */
     this.isMouseOver = false;
+    /**
+     * Indicates if the mouse is currently pressed in the component.
+     * @type {boolean}
+     */
+    this.isPressStarted = false;
 }
 InteractiveComponent.prototype = new LabeledComponent();
 /**
@@ -102,13 +107,56 @@ InteractiveComponent.prototype.onMouseMove = function (mouseX, mouseY) {
     this.onGetShape();
     const isMouseOver = context.isPointInPath(mouseX, mouseY);
     if (!this.isMouseOver && isMouseOver) {
-        console.log("MouseEnter: " + this.labelText);
+        this.onMouseEnter();
     }
     else if (this.isMouseOver && !isMouseOver) {
-        console.log("MouseLeave: " + this.labelText);
+        this.onMouseLeave();
     }
     this.isMouseOver = isMouseOver;
-}
+};
+/**
+ * Called when the mouse is pressed on the canvas.
+ */
+InteractiveComponent.prototype.onMouseDown = function (mouseX, mouseY) {
+    this.onGetShape();
+    const isMouseOver = context.isPointInPath(mouseX, mouseY);
+    if (isMouseOver) {
+        this.isPressStarted = true;
+        this.onMousePressed(mouseX, mouseY);
+    }
+};
+/**
+ * Called when the mouse is released on the canvas.
+ */
+InteractiveComponent.prototype.onMouseUp = function (mouseX, mouseY) {
+    this.onGetShape();
+    this.onMouseReleased(mouseX, mouseY);
+    this.isPressStarted = false;
+};
+/**
+ * Called when the mouse is pressed within the bounds of the component.
+ */
+InteractiveComponent.prototype.onMousePressed = function (mouseX, mouseY) {
+    /* NO-OP */
+};
+/**
+ * Called when the mouse is released after being pressed within the bounds of the component.
+ */
+InteractiveComponent.prototype.onMouseReleased = function (mouseX, mouseY) {
+    /* NO-OP */
+};
+/**
+ * Called when the mouse enters the bounds of the component.
+ */
+InteractiveComponent.prototype.onMouseEnter = function () {
+    /* NO-OP */
+};
+/**
+ * Called when the mouse leaves the bounds of the component.
+ */
+InteractiveComponent.prototype.onMouseLeave = function () {
+    /* NO-OP */
+};
 
 /**
  * Defines the base component for circle components.
@@ -253,6 +301,21 @@ function TapIt() {
 }
 // Inherit from CircleComponent
 TapIt.prototype = new CircleComponent();
+/**
+ * Called when the user taps within the bounds of the Tap It! circle.
+ */
+TapIt.prototype.onTapped = function () {
+    // TODO: Implement
+    console.log("Tapped It!");
+}
+/**
+ * Called when the mouse button is released after being pressed within the bounds of the Tap It! circle.
+ */
+TapIt.prototype.onMouseReleased = function () {
+    if (this.isPressStarted) {
+        this.onTapped();
+    }
+}
 
 /**
  * Defines the Turn It! component.
@@ -260,9 +323,45 @@ TapIt.prototype = new CircleComponent();
 function TurnIt() {
     // Call the base component.
     CircleComponent.call(this, "green", "Turn It!");
+    /**
+     * The horizontal position of the mouse when it was pressed.
+     * @type {number}
+     */
+    this.downX = -1;
+    /**
+     * The vertical position of the mouse when it was pressed.
+     * @type {boolean}
+     */
+    this.downY = -1;
 }
 // Inherit from CircleComponent
 TurnIt.prototype = new CircleComponent();
+/**
+ * Called when the user turns the knob and started the turn within the bounds of the Turn It! circle.
+ */
+TurnIt.prototype.onTurned = function () {
+    console.log("Turned it!")
+}
+/**
+ * Called when the mouse button is pressed within the bounds of the Turn It! circle.
+ */
+TurnIt.prototype.onMousePressed = function (mouseX, mouseY) {
+    this.downX = mouseX;
+    this.downY = mouseY;
+}
+/**
+ * Called when the mouse button is released after being pressed within the bounds of the Turn It! circle.
+ */
+TurnIt.prototype.onMouseReleased = function (mouseX, mouseY) {
+    if (this.isPressStarted) {
+        const xMove = Math.max(mouseX, this.downX) - Math.min(mouseX, this.downX);
+        const yMove = Math.max(mouseY, this.downY) - Math.min(mouseY, this.downY);
+        const requiredMovement = this.size * .30;
+        if (xMove > requiredMovement && yMove > requiredMovement) {
+            this.onTurned();
+        }
+    }
+}
 
 /**
  * Defines the Slide It! component.
@@ -270,9 +369,38 @@ TurnIt.prototype = new CircleComponent();
 function SlideIt() {
     // Call the base component.
     RectangleComponent.call(this, "blue", "Slide It!");
+    /**
+     * The horizontal position of the mouse when it was pressed.
+     * @type {number}
+     */
+    this.downX = -1;
 }
 // Inherit from RectangleComponent
 SlideIt.prototype = new RectangleComponent();
+/**
+ * Called when the user slide the bar and started the slide within the bounds of the Slide It! bar.
+ */
+SlideIt.prototype.onSlid = function () {
+    console.log("Slid it!")
+}
+/**
+ * Called when the mouse button is pressed within the bounds of the Slide It! bar.
+ */
+SlideIt.prototype.onMousePressed = function (mouseX) {
+    this.downX = mouseX;
+}
+/**
+ * Called when the mouse button is released after being pressed within the bounds of the Slide It! bar.
+ */
+SlideIt.prototype.onMouseReleased = function (mouseX) {
+    if (this.isPressStarted) {
+        const xMove = Math.max(mouseX, this.downX) - Math.min(mouseX, this.downX);
+        const requiredMovement = this.size * .45;
+        if (xMove > requiredMovement) {
+            this.onSlid();
+        }
+    }
+}
 
 // Define the game constants
 const CircleStartAngle = 0;
@@ -331,18 +459,43 @@ const setupGameArea = () => {
 setupGameArea();
 window.addEventListener('resize', setupGameArea);
 
-// Wire up mouse tracking.
-const onMouseMove = (event) => {
-    var rect = canvas.getBoundingClientRect(), // abs. size of element
-        scaleX = canvas.width / rect.width,    // relationship bitmap vs. element for x
-        scaleY = canvas.height / rect.height;  // relationship bitmap vs. element for y
+const getMousePosition = (event) => {
+    const rect = canvas.getBoundingClientRect(), // abs. size of element
+        scaleX = canvas.width / rect.width,      // relationship bitmap vs. element for x
+        scaleY = canvas.height / rect.height;    // relationship bitmap vs. element for y
     const mouse = {
         x: (event.clientX - rect.left) * scaleX,   // scale mouse coordinates after they have
-        y: (event.clientY - rect.top) * scaleY     // been adjusted to be relative to element
+        y: (event.clientY - rect.top) * scaleY,    // been adjusted to be relative to element
     };
-    gameComponents.forEach(x => x.onMouseMove(mouse.x, mouse.y));
+    return mouse;
 }
+
+// Wire up mouse tracking.
+const onMouseMove = (event) => {
+    const mouse = getMousePosition(event);
+    gameComponents.forEach(x => x.onMouseMove(mouse.x, mouse.y));
+};
 window.addEventListener('mousemove', onMouseMove);
+const onMouseDown = (event) => {
+    if (event.which === 1) {
+        const mouse = getMousePosition(event);
+        gameComponents.forEach(x => x.onMouseDown(mouse.x, mouse.y));
+    }
+    else {
+        console.log("Mouse button " + event.which);
+    }
+};
+window.addEventListener('mousedown', onMouseDown);
+const onMouseUp = (event) => {
+    if (event.which === 1) {
+        const mouse = getMousePosition(event);
+        gameComponents.forEach(x => x.onMouseUp(mouse.x, mouse.y));
+    }
+    else {
+        console.log("Mouse button " + event.which);
+    }
+};
+window.addEventListener('mouseup', onMouseUp);
 
 // Start the game loop.
 const animate = () => {
