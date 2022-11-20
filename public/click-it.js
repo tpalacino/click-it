@@ -457,7 +457,7 @@ const setupGameArea = () => {
     gameComponents.forEach((x, i) => x.update(i));
 };
 setupGameArea();
-window.addEventListener('resize', setupGameArea);
+window.addEventListener("orientationchange" in window ? "orientationchange" : 'resize', setupGameArea);
 
 const getMousePosition = (event) => {
     const rect = canvas.getBoundingClientRect(), // abs. size of element
