@@ -667,36 +667,60 @@ else {
 }
 window.addEventListener('resize', setupGameArea);
 
+const getEventPoint = (event) => {
+    if (event.changedTouches) {
+        try {
+            const touch = event.changedTouches[0];
+            return {
+                x: touch.clientX,
+                y: touch.clientY,
+            };
+        }
+        catch (err) {
+            console.log(err);
+        }
+    }
+    return {
+        x: event.clientX,
+        y: event.clientY,
+    }
+};
+
 const getMousePosition = (event) => {
+    const eventPoint = getEventPoint(event);
     const rect = canvas.getBoundingClientRect(), // abs. size of element
         scaleX = canvas.width / rect.width,      // relationship bitmap vs. element for x
         scaleY = canvas.height / rect.height;    // relationship bitmap vs. element for y
+    
     const mouse = {
-        x: (event.clientX - rect.left) * scaleX,   // scale mouse coordinates after they have
-        y: (event.clientY - rect.top) * scaleY,    // been adjusted to be relative to element
+        x: (eventPoint.x - rect.left) * scaleX,   // scale mouse coordinates after they have
+        y: (eventPoint.y - rect.top) * scaleY,    // been adjusted to be relative to element
     };
     return mouse;
-}
+};
 
 // Wire up mouse tracking.
-const onMouseMove = (event) => {
+const onMove = (event) => {
     const mouse = getMousePosition(event);
+    console.log("move", mouse);
     game.onMouseMove(mouse.x, mouse.y);
 };
-window.addEventListener('mousemove', onMouseMove);
-window.addEventListener('touchmove', onMouseMove);
-const onMouseDown = (event) => {
+window.addEventListener('mousemove', onMove);
+window.addEventListener('touchmove', onMove);
+const onDown = (event) => {
     const mouse = getMousePosition(event);
+    console.log("down", mouse);
     game.onMouseDown(mouse.x, mouse.y);
 };
-window.addEventListener('mousedown', onMouseDown);
-window.addEventListener('touchstart', onMouseDown);
-const onMouseUp = (event) => {
+window.addEventListener('mousedown', onDown);
+window.addEventListener('touchstart', onDown);
+const onUp = (event) => {
     const mouse = getMousePosition(event);
+    console.log("up", mouse);
     game.onMouseUp(mouse.x, mouse.y);
 };
-window.addEventListener('mouseup', onMouseUp);
-window.addEventListener('touchend', onMouseUp);
+window.addEventListener('mouseup', onUp);
+window.addEventListener('touchend', onUp);
 
 // Start the game loop.
 const animate = () => {
