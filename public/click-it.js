@@ -669,16 +669,11 @@ window.addEventListener('resize', setupGameArea);
 
 const getEventPoint = (event) => {
     if (event.changedTouches) {
-        try {
-            const touch = event.changedTouches[0];
-            return {
-                x: touch.clientX,
-                y: touch.clientY,
-            };
-        }
-        catch (err) {
-            console.log(err);
-        }
+        const touch = event.changedTouches[0];
+        return {
+            x: touch.clientX,
+            y: touch.clientY,
+        };
     }
     return {
         x: event.clientX,
@@ -702,21 +697,18 @@ const getMousePosition = (event) => {
 // Wire up mouse tracking.
 const onMove = (event) => {
     const mouse = getMousePosition(event);
-    console.log("move", mouse);
     game.onMouseMove(mouse.x, mouse.y);
 };
 window.addEventListener('mousemove', onMove);
 window.addEventListener('touchmove', onMove);
 const onDown = (event) => {
     const mouse = getMousePosition(event);
-    console.log("down", mouse);
     game.onMouseDown(mouse.x, mouse.y);
 };
 window.addEventListener('mousedown', onDown);
 window.addEventListener('touchstart', onDown);
 const onUp = (event) => {
     const mouse = getMousePosition(event);
-    console.log("up", mouse);
     game.onMouseUp(mouse.x, mouse.y);
 };
 window.addEventListener('mouseup', onUp);
