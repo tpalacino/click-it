@@ -684,16 +684,19 @@ const onMouseMove = (event) => {
     game.onMouseMove(mouse.x, mouse.y);
 };
 window.addEventListener('mousemove', onMouseMove);
+window.addEventListener('touchmove', onMouseMove);
 const onMouseDown = (event) => {
     const mouse = getMousePosition(event);
     game.onMouseDown(mouse.x, mouse.y);
 };
 window.addEventListener('mousedown', onMouseDown);
+window.addEventListener('touchstart', onMouseDown);
 const onMouseUp = (event) => {
     const mouse = getMousePosition(event);
     game.onMouseUp(mouse.x, mouse.y);
 };
 window.addEventListener('mouseup', onMouseUp);
+window.addEventListener('touchend', onMouseUp);
 
 // Start the game loop.
 const animate = () => {
