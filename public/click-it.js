@@ -49,7 +49,7 @@ function LabeledComponent(labelText, labelColor) {
     this.offset = -1;
 }
 /**
- * Called when the window size is calculated.
+ * Called when the component is invalidated.
  * @param {number} index The position of the component in the collection of components.
  */
 LabeledComponent.prototype.update = function (index) {
@@ -191,7 +191,7 @@ function CircleComponent(color, labelText, labelColor) {
 // Inherit from InteractiveComponent
 CircleComponent.prototype = new InteractiveComponent();
 /**
- * Called when the window size is calculated.
+ * Called when the component is invalidated.
  * @param {number} index The position of the circle component in the collection of components.
  */
 CircleComponent.prototype.update = function (index) {
@@ -254,7 +254,7 @@ function RectangleComponent(color, labelText, labelColor) {
 // Inherit from InteractiveComponent
 RectangleComponent.prototype = new InteractiveComponent();
 /**
- * Called when the window size is calculated.
+ * Called when the component is invalidated.
  * @param {number} index The position of the rectangle component in the collection of components.
  */
 RectangleComponent.prototype.update = function (index) {
@@ -412,6 +412,10 @@ function BestScore() {
 }
 // Inherit from RectangleComponent
 BestScore.prototype = new RectangleComponent();
+/**
+ * Called when the component is invalidated.
+ * @param {number} index The position of the circle component in the collection of components.
+ */
 BestScore.prototype.update = function (index) {
     // Call the RectangleComponent to update the label.
     RectangleComponent.prototype.update.call(this, index);
@@ -420,6 +424,9 @@ BestScore.prototype.update = function (index) {
 
     this.labelText = !Number.isNaN(score) && score > 0 ? `Best: ${score.toLocaleString()}` : "";
 }
+/**
+ * Called by the game loop to draw the best score.
+ */
 BestScore.prototype.draw = function () {
     if (this.labelText.length > 0) {
         // Call the RectangleComponent to update the label.
@@ -427,34 +434,138 @@ BestScore.prototype.draw = function () {
     }
 }
 
+/**
+ * Defines an action.
+ * @param {string} name The name of the action.
+ * @param {string} instruction The message to speak to the user.
+ */
+function Action(name, instruction) {
+    /**
+     * The name of the action.
+     * @type {string}
+     */
+    this.Name = name;
+    /**
+     * The message to speak to the user.
+     * @type {SpeechSynthesisUtterance}
+     */
+    this.Instruction = new SpeechSynthesisUtterance(instruction);
+
+    this.Instruction.voice = speechSynthesis.getVoices().find(v => v.lang === UserLocale && true === v.default);
+}
+
 function Game() {
+    /**
+     * The possible screens to draw.
+     */
     this.screens = {
         "menu": [new Start(), new BestScore()],
         "game": [new TapIt(), new TurnIt(), new SlideIt()],
     };
-
+    /**
+     * The screen that is being drawn.
+     */
     this.activeScreen = this.screens["menu"];
-}
-Game.prototype.addScreen = function (id, screen) {
-    this.screens[id] = screen;
-    if (!this.activeScreen) {
-        this.setScreen(id);
-    }
-    return this;
+    /**
+     * The number of correct actions within the allotted time. 
+     */
+    this.score = -1;
+    /**
+     * The additional amount of time for the user to take action.
+     */
+    this.additionalTimeForAction = -1;
+    /**
+     * The next action the user is expected to perform.
+     * @type {Action}
+     */
+    this.expectedAction = null;
+    /**
+     * Indicates if the game has ended.
+     */
+    this.isEnded = true;
+    /**
+     * The handle to the timeout that will end the game if the user does not act correctly before it is fired.
+     */
+    this.actionTimeoutId = null;
 }
 Game.prototype.start = function () {
     this.activeScreen = this.screens["game"];
     this.update();
-    // TODO: Implement game logic
+    this.isEnded = false;
+    this.score = 0;
+    this.additionalTimeForAction = 3000;
+    this.expectedAction = getRandomAction();
+    this.doAction();
+}
+Game.prototype.end = function () {
+    this.isEnded = true;
+    if (this.actionTimeoutId >= 0) {
+        clearTimeout(this.actionTimeoutId);
+    }
+    const bestScore = Number(localStorage.getItem("best-score"));
+    if (Number.isNaN(bestScore) || this.score > bestScore) {
+        localStorage.setItem("best-score", this.score.toString());
+    }
+    this.activeScreen = this.screens["menu"];
+    this.update();
+}
+Game.prototype.doAction = function () {
+    // Start a timer to end the game if the user takes too long
+    this.actionTimeoutId = setTimeout(() => {
+        this.end();
+    }, MinTimeForAction + this.additionalTimeForAction);
+    
+    speechSynthesis.speak(this.expectedAction.Instruction);
+}
+/**
+ * Called when the user performs the correct action.
+ */
+Game.prototype.nextAction = function () {
+    // Don't do anything if they timer expired before they did the action.
+    if (!this.isEnded) {
+        // Prevent the timer from ending the game 
+        if (this.actionTimeoutId >= 0) {
+            clearTimeout(this.actionTimeoutId);
+        }
+
+        // Increment the score
+        this.score += 1;
+
+        // Decrease the amount of time the user has to respond
+        if (this.score % 3 === 0 && this.additionalTimeForAction >= 250) {
+            this.additionalTimeForAction -= 250;
+        }
+
+        // Get the next random action
+        this.expectedAction = getRandomAction();
+
+        // Start the action.
+        this.doAction();
+    }
 }
 Game.prototype.handleTap = function () {
-    // TODO: Implement
+    if (this.expectedAction.Name === "TAP") {
+        this.nextAction();
+    }
+    else {
+        this.end();
+    }
 }
 Game.prototype.handleTurn = function () {
-    // TODO: Implement
+    if (this.expectedAction.Name === "TURN") {
+        this.nextAction();
+    }
+    else {
+        this.end();
+    }
 }
 Game.prototype.handleSlide = function () {
-    // TODO: Implement
+    if (this.expectedAction.Name === "SLIDE") {
+        this.nextAction();
+    }
+    else {
+        this.end();
+    }
 }
 Game.prototype.update = function () {
     if (this.activeScreen) {
@@ -482,8 +593,8 @@ Game.prototype.onMouseUp = function (mouseX, mouseY) {
     }
 }
 
-
 // Define the game constants
+const UserLocale = Intl.DateTimeFormat().resolvedOptions().locale;
 const CircleStartAngle = 0;
 const CircleEndAngle = Math.PI * 2;
 const ComponentMargin = 7;
@@ -492,6 +603,15 @@ const MinLongDimension = (ComponentSize * 3) + (ComponentMargin * 4);
 const MinShortDimension = ComponentSize + (ComponentMargin * 2);
 const ShortDimensionToLong = MinLongDimension / MinShortDimension;
 const LongDimensionToShort = MinShortDimension / MinLongDimension;
+const MinTimeForAction = 1500;
+const Actions = [
+    new Action("TAP", "Tap It!"),
+    new Action("TURN", "Turn It!"),
+    new Action("SLIDE", "Slide It!"),
+];
+const getRandomAction = () => {
+    return Actions[Math.floor(Math.random() * Actions.length)];
+}
 
 // Create the game.
 const gameArea = { top: 0, left: 0, width: 0, height: 0, scale: 0 };
